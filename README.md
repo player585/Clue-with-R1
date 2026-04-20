@@ -1,8 +1,8 @@
-# R1 Manor — Clue
+# Clue with R1 — Clue
 
 **v1.0.0** — Digital Clue (murder mystery deduction) built for the Rabbit R1 screen (240x282).
 
-![R1 Manor QR Code](qr-code.png)
+![Clue with R1 QR Code](qr-code.png)
 
 **Live URL:** https://player585.github.io/Clue-with-R1/
 
