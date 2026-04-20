@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=240,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>R1 Manor — Clue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0f0e;--surf:#131615;--surf2:#191c1a;--offset:#1f2320;
+  --div:#2a2e2c;--bord:#333836;
+  --txt:#e8ebe9;--muted:#7a8078;--faint:#4a4f4d;
+  --red:#8b2232;--gold:#d4af37;--green:#22c55e;--warn:#ef4444;
+  --blue:#5591c7;
+  --mono:'JetBrains Mono',monospace;--body:'Inter',sans-serif;
+  --xs:0.5625rem;--sm:0.625rem;--base:0.6875rem;--md:0.8125rem;--lg:0.9375rem;--xl:1.0625rem;--xxl:1.25rem;
+  --r:0.375rem;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;-webkit-text-size-adjust:none}
+body{font-family:var(--body);font-size:var(--base);color:var(--txt);background:var(--bg);
+  height:100dvh;overflow:hidden;display:flex;flex-direction:column;max-width:240px;margin:0 auto}
+button{cursor:pointer;background:none;border:none;font:inherit;color:inherit}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;
+  background:var(--surf);border-bottom:1px solid var(--div);flex-shrink:0}
+.header-title{font-family:var(--mono);font-size:var(--sm);font-weight:700;letter-spacing:.02em}
+.header-title span{color:var(--gold)}
+.header-phase{font-family:var(--mono);font-size:var(--xs);color:var(--muted)}
+.header-icons{display:flex;gap:4px;align-items:center}
+.whisper-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:8px;background:var(--offset);color:var(--muted);cursor:pointer}
+.whisper-icon.active{background:var(--gold);color:var(--bg)}
+
+.main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
+.main::-webkit-scrollbar{width:3px}
+.main::-webkit-scrollbar-thumb{background:var(--bord);border-radius:9px}
+
+.screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 10px;gap:6px;text-align:center}
+
+/* Title */
+.title-name{font-family:var(--mono);font-size:var(--xxl);font-weight:700;color:var(--gold);letter-spacing:.04em}
+.title-sub{font-family:var(--mono);font-size:var(--xs);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.title-ver{font-family:var(--mono);font-size:7px;color:var(--faint)}
+
+/* Prompt */
+.prompt{font-family:var(--mono);font-size:var(--xs);color:var(--faint);padding:4px 0}
+.prompt-ptt{color:var(--gold)}
+.prompt-scroll{color:var(--blue)}
+
+/* Selection list */
+.sel-list{width:100%;display:flex;flex-direction:column;gap:3px}
+.sel-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--surf);
+  border:1px solid var(--div);border-radius:var(--r);font-family:var(--mono);font-size:var(--sm);
+  color:var(--muted);cursor:pointer;transition:all .12s}
+.sel-item.focused{border-color:var(--gold);color:var(--txt);background:var(--offset);box-shadow:0 0 0 1px var(--gold)}
+.sel-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sel-item .label{flex:1;text-align:left}
+.sel-item .badge{font-size:var(--xs);color:var(--faint)}
+
+/* Cards */
+.card-row{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;width:100%}
+.card{padding:3px 6px;background:var(--surf);border:1px solid var(--div);border-radius:var(--r);
+  font-family:var(--mono);font-size:var(--xs);color:var(--muted);white-space:nowrap}
+.card.suspect{border-color:var(--red);color:var(--red)}
+.card.weapon{border-color:var(--blue);color:var(--blue)}
+.card.room{border-color:var(--green);color:var(--green)}
+
+/* Map */
+.map-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;width:100%;padding:2px}
+.map-cell{background:var(--surf);border:1px solid var(--div);border-radius:3px;padding:3px 2px;
+  text-align:center;font-family:var(--mono);font-size:7px;color:var(--muted);min-height:28px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;position:relative}
+.map-cell.focused{border-color:var(--gold);background:var(--offset);color:var(--txt)}
+.map-cell.current{border-color:var(--green);background:color-mix(in oklch,var(--green) 10%,var(--surf))}
+.map-cell.adjacent{border-color:var(--gold);border-style:dashed}
+.map-cell.secret{border-color:var(--red);border-style:dotted}
+.map-cell .room-name{font-weight:700;font-size:7px;line-height:1.1}
+.map-cell .room-tokens{display:flex;gap:1px;flex-wrap:wrap;justify-content:center}
+.map-cell .token{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* Notepad */
+.np-tabs{display:flex;width:100%;border-bottom:1px solid var(--div);flex-shrink:0}
+.np-tab{flex:1;padding:3px 0;font-family:var(--mono);font-size:var(--xs);font-weight:700;text-align:center;
+  color:var(--faint);text-transform:uppercase;border-bottom:2px solid transparent;cursor:pointer}
+.np-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.np-row{display:flex;align-items:center;padding:3px 6px;border-bottom:1px solid color-mix(in oklch,var(--div) 40%,transparent);gap:4px}
+.np-row.focused{background:var(--offset)}
+.np-row .np-name{flex:1;font-family:var(--mono);font-size:var(--xs);color:var(--muted);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-row .np-marks{display:flex;gap:2px}
+.np-mark{width:14px;height:14px;border-radius:2px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:7px;font-weight:700;background:var(--surf);border:1px solid var(--div)}
+.np-mark.has{background:var(--green);color:var(--bg);border-color:var(--green)}
+.np-mark.clear{background:var(--warn);color:var(--bg);border-color:var(--warn)}
+.np-mark.maybe{background:var(--blue);color:var(--bg);border-color:var(--blue)}
+.np-mark.self{background:var(--gold);color:var(--bg);border-color:var(--gold)}
+
+/* Privacy screen */
+.privacy{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--bg);padding:16px;gap:8px;text-align:center}
+.privacy-icon{font-size:28px;opacity:.5}
+.privacy-name{font-family:var(--mono);font-size:var(--md);font-weight:700;color:var(--gold)}
+.privacy-msg{font-family:var(--mono);font-size:var(--xs);color:var(--muted)}
+
+/* Phase banner */
+.phase-banner{width:100%;padding:4px 8px;background:color-mix(in oklch,var(--gold) 8%,var(--surf));
+  border-bottom:1px solid var(--div);text-align:center;flex-shrink:0}
+.phase-label{font-family:var(--mono);font-size:var(--xs);font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
+.phase-detail{font-family:var(--mono);font-size:var(--xs);color:var(--muted)}
+
+/* Result */
+.result-icon{font-size:32px}
+.result-title{font-family:var(--mono);font-size:var(--md);font-weight:700}
+.result-msg{font-size:var(--xs);color:var(--muted);line-height:1.4}
+
+/* Footer */
+.footer{display:flex;align-items:center;justify-content:space-between;padding:3px 10px;
+  background:var(--surf);border-top:1px solid var(--div);flex-shrink:0;min-height:20px}
+.footer-left{font-family:var(--mono);font-size:7px;color:var(--faint)}
+.footer-right{font-family:var(--mono);font-size:7px;color:var(--faint)}
+
+/* Suspect colors */
+.c-scarlet{color:#dc2626}.bg-scarlet{background:#dc2626}
+.c-mustard{color:#eab308}.bg-mustard{background:#eab308}
+.c-plum{color:#7c3aed}.bg-plum{background:#7c3aed}
+.c-green{color:#16a34a}.bg-green{background:#16a34a}
+.c-white{color:#e5e7eb}.bg-white{background:#e5e7eb}
+.c-peacock{color:#2563eb}.bg-peacock{background:#2563eb}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.pulse{animation:pulse 1.8s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-title"><span>R1</span> MANOR</div>
+  <div class="header-phase" id="phaseLabel">CLUE</div>
+  <div class="header-icons">
+    <div class="whisper-icon" id="whisperToggle" title="Whisper mode">&#128266;</div>
+  </div>
+</header>
+
+<main class="main" id="main"></main>
+
+<footer class="footer">
+  <span class="footer-left" id="footerLeft">v1.0.0</span>
+  <span class="footer-right" id="footerRight"></span>
+</footer>
+
+<script>
+/* ══════════════════════════════════════
+   GAME DATA
+   ══════════════════════════════════════ */
+const SUSPECTS = [
+  {name:'Scarlet',cls:'scarlet'},{name:'Mustard',cls:'mustard'},
+  {name:'Plum',cls:'plum'},{name:'Green',cls:'green'},
+  {name:'White',cls:'white'},{name:'Peacock',cls:'peacock'}
+];
+const WEAPONS = ['Knife','Candlestick','Revolver','Rope','Lead Pipe','Wrench'];
+const ROOMS = ['Kitchen','Ballroom','Conservatory','Dining Room','Billiard Room','Library','Lounge','Hall','Study'];
+const ROOM_GRID = [ // 3x3 layout indices into ROOMS
+  [0,1,2],  // Kitchen, Ballroom, Conservatory
+  [3,4,5],  // Dining Room, Billiard Room, Library
+  [6,7,8]   // Lounge, Hall, Study
+];
+// Adjacency: each room connects to neighbors + secret passages (corner-to-corner)
+const ADJ = {
+  0:[1,3,8],    // Kitchen → Ballroom,Dining,Study(secret)
+  1:[0,2,4],    // Ballroom → Kitchen,Conservatory,Billiard
+  2:[1,5,6],    // Conservatory → Ballroom,Library,Lounge(secret)
+  3:[0,4,6],    // Dining → Kitchen,Billiard,Lounge
+  4:[1,3,5,7],  // Billiard → Ballroom,Dining,Library,Hall
+  5:[2,4,8],    // Library → Conservatory,Billiard,Study
+  6:[3,7,2],    // Lounge → Dining,Hall,Conservatory(secret)
+  7:[4,6,8],    // Hall → Billiard,Lounge,Study
+  8:[5,7,0]     // Study → Library,Hall,Kitchen(secret)
+};
+const SECRETS = {0:8,8:0,2:6,6:2}; // Secret passage pairs
+
+/* ══════════════════════════════════════
+   GAME STATE
+   ══════════════════════════════════════ */
+let G = {
+  phase:'TITLE', playerCount:0, players:[], envelope:{},
+  turnIdx:0, suggestion:null, refuteIdx:0, refuteCard:null,
+  accusation:null, winner:null, focusIdx:0, npTab:0, npFocusIdx:0,
+  whisperOn:true, setupIdx:0, menuIdx:0
+};
+
+function newGame() {
+  G = {phase:'TITLE',playerCount:0,players:[],envelope:{},
+    turnIdx:0,suggestion:null,refuteIdx:0,refuteCard:null,
+    accusation:null,winner:null,focusIdx:0,npTab:0,npFocusIdx:0,
+    whisperOn:true,setupIdx:0,menuIdx:0};
+}
+
+/* ── Helpers ── */
+function shuffle(a){let b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+function curPlayer(){return G.players[G.turnIdx]}
+function el(id){return document.getElementById(id)}
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+/* ── TTS Whisper ── */
+function whisper(text, cb) {
+  if (!G.whisperOn || !window.speechSynthesis) { if(cb)cb(); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.9; u.pitch = 0.8; u.volume = 0.6;
+  u.onend = () => { if(cb)cb(); };
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+/* ══════════════════════════════════════
+   DEAL LOGIC
+   ══════════════════════════════════════ */
+function dealCards() {
+  const ss = shuffle([...Array(6).keys()]); // suspect indices
+  const ws = shuffle([...Array(6).keys()]); // weapon indices
+  const rs = shuffle([...Array(9).keys()]); // room indices
+  G.envelope = { suspect: ss.pop(), weapon: ws.pop(), room: rs.pop() };
+  // Remaining cards as {type, idx}
+  let deck = [];
+  ss.forEach(i => deck.push({type:'suspect',idx:i}));
+  ws.forEach(i => deck.push({type:'weapon',idx:i}));
+  rs.forEach(i => deck.push({type:'room',idx:i}));
+  deck = shuffle(deck);
+  // Deal evenly
+  G.players.forEach(p => p.hand = []);
+  deck.forEach((card, i) => G.players[i % G.playerCount].hand.push(card));
+  // Init notepads
+  G.players.forEach(p => {
+    p.notepad = { suspects: Array(6).fill('?'), weapons: Array(6).fill('?'), rooms: Array(9).fill('?') };
+    // Mark own cards
+    p.hand.forEach(c => {
+      if(c.type==='suspect') p.notepad.suspects[c.idx] = 'self';
+      if(c.type==='weapon') p.notepad.weapons[c.idx] = 'self';
+      if(c.type==='room') p.notepad.rooms[c.idx] = 'self';
+    });
+  });
+  // Assign starting rooms (spread out)
+  const startRooms = shuffle([...Array(9).keys()]);
+  G.players.forEach((p,i) => p.room = startRooms[i]);
+}
+
+/* ══════════════════════════════════════
+   REFUTATION LOGIC
+   ══════════════════════════════════════ */
+function findRefuter() {
+  const s = G.suggestion;
+  const n = G.playerCount;
+  for (let offset = 1; offset < n; offset++) {
+    const idx = (G.turnIdx + offset) % n;
+    const p = G.players[idx];
+    if (!p.alive) continue;
+    const matching = p.hand.filter(c =>
+      (c.type==='suspect' && c.idx===s.suspect) ||
+      (c.type==='weapon' && c.idx===s.weapon) ||
+      (c.type==='room' && c.idx===s.room)
+    );
+    if (matching.length > 0) return { playerIdx: idx, cards: matching };
+  }
+  return null; // no one can refute
+}
+
+/* ══════════════════════════════════════
+   RENDER ENGINE
+   ══════════════════════════════════════ */
+function render() {
+  const m = el('main');
+  const pl = el('phaseLabel');
+  const fl = el('footerLeft');
+  const fr = el('footerRight');
+  fl.textContent = 'v1.0.0';
+
+  switch(G.phase) {
+  case 'TITLE':
+    pl.textContent = 'CLUE';
+    fr.textContent = '';
+    m.innerHTML = `
+      <div class="screen">
+        <div class="title-sub">A MURDER MYSTERY FOR</div>
+        <div class="title-name">R1 MANOR</div>
+        <div style="font-family:var(--mono);font-size:var(--xs);color:var(--muted);margin:4px 0">
+          3–6 players · Pass & play
+        </div>
+        <div style="font-size:20px;opacity:.4;margin:4px 0">🔍🗡️🕯️</div>
+        <div class="prompt"><span class="prompt-ptt">PTT</span> to begin</div>
+        <div class="title-ver">Built for Rabbit R1</div>
+      </div>`;
+    break;
+
+  case 'PLAYER_COUNT':
+    pl.textContent = 'SETUP';
+    fr.textContent = '1/3';
+    m.innerHTML = `
+      <div class="phase-banner"><div class="phase-label">How many detectives?</div></div>
+      <div class="screen">
+        <div class="sel-list" id="selList">
+          ${[3,4,5,6].map((n,i) => `
+            <div class="sel-item${i===G.focusIdx?' focused':''}" data-val="${n}">
+              <span class="dot" style="background:var(--gold)"></span>
+              <span class="label">${n} Players</span>
+              <span class="badge">${n===3?'Quick':n===4?'Classic':n===5?'Full':n===6?'Party':''}</span>
+            </div>`).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> pick · <span class="prompt-ptt">PTT</span> confirm</div>
+      </div>`;
+    break;
+
+  case 'PLAYER_SETUP':
+    pl.textContent = 'SETUP';
+    fr.textContent = `Player ${G.setupIdx+1}/${G.playerCount}`;
+    const avail = SUSPECTS.filter(s => !G.players.some(p => p.character === s.name));
+    m.innerHTML = `
+      <div class="phase-banner">
+        <div class="phase-label">Player ${G.setupIdx+1} — Pick character</div>
+        <div class="phase-detail">Pass R1 to this player</div>
+      </div>
+      <div class="screen">
+        <div class="sel-list">
+          ${avail.map((s,i) => `
+            <div class="sel-item${i===G.focusIdx?' focused':''}" data-char="${s.name}">
+              <span class="dot bg-${s.cls}"></span>
+              <span class="label c-${s.cls}">${s.name}</span>
+            </div>`).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> pick · <span class="prompt-ptt">PTT</span> confirm</div>
+      </div>`;
+    break;
+
+  case 'DEAL_PASS':
+    pl.textContent = 'DEAL';
+    fr.textContent = `${G.setupIdx+1}/${G.playerCount}`;
+    const dp = G.players[G.setupIdx];
+    m.innerHTML = `
+      <div class="privacy">
+        <div class="privacy-icon">🔒</div>
+        <div class="privacy-name c-${SUSPECTS.find(s=>s.name===dp.character).cls}">${dp.character}</div>
+        <div class="privacy-msg">Pass R1 to this player</div>
+        <div class="privacy-msg" style="margin-top:8px">Hold to ear for whisper<br>or view cards on screen</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> when ready</div>
+      </div>`;
+    break;
+
+  case 'DEAL_REVEAL': {
+    pl.textContent = 'YOUR CARDS';
+    const dr = G.players[G.setupIdx];
+    const cls = SUSPECTS.find(s=>s.name===dr.character).cls;
+    m.innerHTML = `
+      <div class="phase-banner">
+        <div class="phase-label c-${cls}">${dr.character}'s Hand</div>
+        <div class="phase-detail">${dr.hand.length} cards — memorize these</div>
+      </div>
+      <div class="screen" style="justify-content:flex-start;padding-top:4px">
+        <div class="card-row">
+          ${dr.hand.map(c => {
+            const name = c.type==='suspect'?SUSPECTS[c.idx].name:c.type==='weapon'?WEAPONS[c.idx]:ROOMS[c.idx];
+            return `<div class="card ${c.type}">${name}</div>`;
+          }).join('')}
+        </div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> done · cards memorized</div>
+      </div>`;
+    break;
+  }
+
+  case 'TURN_START': {
+    const tp = curPlayer();
+    const cls = SUSPECTS.find(s=>s.name===tp.character).cls;
+    pl.textContent = `${tp.character.toUpperCase()}'S TURN`;
+    fr.textContent = `Turn ${Math.floor(G.turnIdx/G.playerCount)+1}`;
+    const menuItems = ['Move to Room','Make Suggestion','View Notepad','Make Accusation'];
+    m.innerHTML = `
+      <div class="phase-banner">
+        <div class="phase-label c-${cls}">${tp.character}</div>
+        <div class="phase-detail">Currently in: ${ROOMS[tp.room]}</div>
+      </div>
+      <div class="screen" style="justify-content:flex-start;padding-top:4px">
+        <div class="sel-list">
+          ${menuItems.map((item,i) => `
+            <div class="sel-item${i===G.menuIdx?' focused':''}" data-menu="${i}">
+              <span class="dot" style="background:${i===0?'var(--green)':i===1?'var(--gold)':i===2?'var(--blue)':'var(--red)'}"></span>
+              <span class="label">${item}</span>
+              ${i===3?'<span class="badge" style="color:var(--warn)">RISKY</span>':''}
+            </div>`).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> pick · <span class="prompt-ptt">PTT</span> confirm</div>
+      </div>`;
+    break;
+  }
+
+  case 'MOVE': {
+    const mp = curPlayer();
+    pl.textContent = 'MOVE';
+    fr.textContent = ROOMS[mp.room];
+    m.innerHTML = `
+      <div class="phase-banner"><div class="phase-label">Pick a room</div>
+        <div class="phase-detail">Adjacent rooms highlighted · Corners have secret passages</div></div>
+      <div style="padding:4px">
+        <div class="map-grid">
+          ${ROOM_GRID.flat().map((ri,i) => {
+            const isCur = mp.room === ri;
+            const isAdj = ADJ[mp.room].includes(ri);
+            const isSec = SECRETS[mp.room] === ri;
+            const isFoc = G.focusIdx === i;
+            let cls = 'map-cell';
+            if(isFoc) cls += ' focused';
+            if(isCur) cls += ' current';
+            else if(isSec) cls += ' secret';
+            else if(isAdj) cls += ' adjacent';
+            // Player tokens in this room
+            const tokens = G.players.filter(p=>p.alive&&p.room===ri).map(p=>{
+              const sc = SUSPECTS.find(s=>s.name===p.character).cls;
+              return `<span class="token bg-${sc}"></span>`;
+            }).join('');
+            return `<div class="${cls}" data-room="${ri}">
+              <span class="room-name">${ROOMS[ri].replace(' ','<br>')}</span>
+              <div class="room-tokens">${tokens}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="prompt" style="padding:2px"><span class="prompt-scroll">SCROLL</span> room · <span class="prompt-ptt">PTT</span> move${G.players.some(p=>p.room===mp.room&&p!==mp)?'':''}  </div>`;
+    break;
+  }
+
+  case 'SUGGEST_SUSPECT': {
+    pl.textContent = 'SUGGEST';
+    fr.textContent = 'Suspect';
+    m.innerHTML = `
+      <div class="phase-banner"><div class="phase-label">Who did it?</div>
+        <div class="phase-detail">In the ${ROOMS[curPlayer().room]}</div></div>
+      <div class="screen" style="justify-content:flex-start;padding-top:4px">
+        <div class="sel-list">
+          ${SUSPECTS.map((s,i) => `
+            <div class="sel-item${i===G.focusIdx?' focused':''}" data-si="${i}">
+              <span class="dot bg-${s.cls}"></span>
+              <span class="label c-${s.cls}">${s.name}</span>
+            </div>`).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> · <span class="prompt-ptt">PTT</span> confirm</div>
+      </div>`;
+    break;
+  }
+
+  case 'SUGGEST_WEAPON': {
+    pl.textContent = 'SUGGEST';
+    fr.textContent = 'Weapon';
+    m.innerHTML = `
+      <div class="phase-banner"><div class="phase-label">With what?</div>
+        <div class="phase-detail">${SUSPECTS[G.suggestion.suspect].name} in the ${ROOMS[curPlayer().room]}</div></div>
+      <div class="screen" style="justify-content:flex-start;padding-top:4px">
+        <div class="sel-list">
+          ${WEAPONS.map((w,i) => `
+            <div class="sel-item${i===G.focusIdx?' focused':''}" data-wi="${i}">
+              <span class="dot" style="background:var(--blue)"></span>
+              <span class="label">${w}</span>
+            </div>`).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> · <span class="prompt-ptt">PTT</span> confirm</div>
+      </div>`;
+    break;
+  }
+
+  case 'SUGGEST_ANNOUNCE': {
+    const s = G.suggestion;
+    pl.textContent = 'SUGGESTION';
+    m.innerHTML = `
+      <div class="screen">
+        <div style="font-family:var(--mono);font-size:var(--xs);color:var(--faint);text-transform:uppercase">It was...</div>
+        <div style="font-family:var(--mono);font-size:var(--md);font-weight:700" class="c-${SUSPECTS[s.suspect].cls}">${SUSPECTS[s.suspect].name}</div>
+        <div style="font-family:var(--mono);font-size:var(--xs);color:var(--faint)">with the</div>
+        <div style="font-family:var(--mono);font-size:var(--md);font-weight:700;color:var(--blue)">${WEAPONS[s.weapon]}</div>
+        <div style="font-family:var(--mono);font-size:var(--xs);color:var(--faint)">in the</div>
+        <div style="font-family:var(--mono);font-size:var(--md);font-weight:700;color:var(--green)">${ROOMS[s.room]}</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> to check refutations</div>
+      </div>`;
+    whisper(`${SUSPECTS[s.suspect].name}, with the ${WEAPONS[s.weapon]}, in the ${ROOMS[s.room]}`);
+    break;
+  }
+
+  case 'REFUTE_PASS': {
+    const rp = G.players[G.refuteIdx];
+    const cls = SUSPECTS.find(s=>s.name===rp.character).cls;
+    pl.textContent = 'REFUTE';
+    m.innerHTML = `
+      <div class="privacy">
+        <div class="privacy-icon">🔎</div>
+        <div class="privacy-name c-${cls}">${rp.character}</div>
+        <div class="privacy-msg">Can you refute?</div>
+        <div class="privacy-msg">Pass R1 to this player privately</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> when ready</div>
+      </div>`;
+    break;
+  }
+
+  case 'REFUTE_PICK': {
+    const rp2 = G.players[G.refuteIdx];
+    const matching = G._refuteData.cards;
+    pl.textContent = 'REFUTE';
+    fr.textContent = rp2.character;
+    m.innerHTML = `
+      <div class="phase-banner"><div class="phase-label">Pick a card to show</div>
+        <div class="phase-detail">Only ${curPlayer().character} will see this</div></div>
+      <div class="screen" style="justify-content:flex-start;padding-top:4px">
+        <div class="sel-list">
+          ${matching.map((c,i) => {
+            const name = c.type==='suspect'?SUSPECTS[c.idx].name:c.type==='weapon'?WEAPONS[c.idx]:ROOMS[c.idx];
+            return `<div class="sel-item${i===G.focusIdx?' focused':''}" data-ri="${i}">
+              <span class="dot" style="background:${c.type==='suspect'?'var(--red)':c.type==='weapon'?'var(--blue)':'var(--green)'}"></span>
+              <span class="label">${name}</span>
+              <span class="badge">${c.type}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> · <span class="prompt-ptt">PTT</span> show card</div>
+      </div>`;
+    break;
+  }
+
+  case 'REFUTE_RETURN': {
+    const tp2 = curPlayer();
+    const cls2 = SUSPECTS.find(s=>s.name===tp2.character).cls;
+    pl.textContent = 'REFUTED';
+    m.innerHTML = `
+      <div class="privacy">
+        <div class="privacy-icon">🔒</div>
+        <div class="privacy-name c-${cls2}">${tp2.character}</div>
+        <div class="privacy-msg">Pass R1 back to see the card</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> when ready</div>
+      </div>`;
+    break;
+  }
+
+  case 'REFUTE_REVEAL': {
+    const rc = G.refuteCard;
+    const refuter = G.players[G._refuteData.playerIdx];
+    const cardName = rc.type==='suspect'?SUSPECTS[rc.idx].name:rc.type==='weapon'?WEAPONS[rc.idx]:ROOMS[rc.idx];
+    pl.textContent = 'REVEALED';
+    m.innerHTML = `
+      <div class="screen">
+        <div style="font-family:var(--mono);font-size:var(--xs);color:var(--faint)">${refuter.character} showed you:</div>
+        <div class="card ${rc.type}" style="font-size:var(--md);padding:6px 12px;margin:6px 0">${cardName}</div>
+        <div style="font-family:var(--mono);font-size:var(--xs);color:var(--muted)">Notepad updated automatically</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> continue</div>
+      </div>`;
+    whisper(`${refuter.character} shows you: ${cardName}`);
+    break;
+  }
+
+  case 'NO_REFUTE':
+    pl.textContent = 'NO REFUTE';
+    m.innerHTML = `
+      <div class="screen">
+        <div class="result-icon">😱</div>
+        <div class="result-title" style="color:var(--gold)">No one could refute!</div>
+        <div class="result-msg">This suggestion stands unchallenged...</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> continue</div>
+      </div>`;
+    whisper('No one could refute this suggestion!');
+    break;
+
+  case 'NOTEPAD': {
+    const np = curPlayer();
+    const tabs = ['Suspects','Weapons','Rooms'];
+    const items = G.npTab===0?SUSPECTS.map(s=>s.name):G.npTab===1?WEAPONS:ROOMS;
+    const marks = G.npTab===0?np.notepad.suspects:G.npTab===1?np.notepad.weapons:np.notepad.rooms;
+    pl.textContent = 'NOTEPAD';
+    fr.textContent = np.character;
+    m.innerHTML = `
+      <div class="np-tabs">
+        ${tabs.map((t,i) => `<div class="np-tab${i===G.npTab?' active':''}" data-npt="${i}">${t.substring(0,4)}</div>`).join('')}
+      </div>
+      <div style="flex:1;overflow-y:auto;width:100%">
+        ${items.map((item,i) => {
+          const mark = marks[i];
+          const markCls = mark==='self'?'self':mark==='X'?'has':mark==='-'?'clear':mark==='?'?'':'maybe';
+          const markTxt = mark==='self'?'★':mark==='X'?'✓':mark==='-'?'✗':mark==='?'?'·':'?';
+          return `<div class="np-row${i===G.npFocusIdx?' focused':''}" data-npi="${i}">
+            <span class="np-name">${typeof item==='object'?item:item}</span>
+            <div class="np-marks">
+              <div class="np-mark ${markCls}">${markTxt}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="prompt" style="padding:3px 8px;flex-shrink:0">
+        <span class="prompt-scroll">SCROLL</span> browse · <span class="prompt-ptt">PTT</span> toggle mark · <span style="color:var(--muted)">LONG</span> back
+      </div>`;
+    break;
+  }
+
+  case 'ACCUSE_SUSPECT':
+  case 'ACCUSE_WEAPON':
+  case 'ACCUSE_ROOM': {
+    const aType = G.phase==='ACCUSE_SUSPECT'?'suspect':G.phase==='ACCUSE_WEAPON'?'weapon':'room';
+    const items2 = aType==='suspect'?SUSPECTS:aType==='weapon'?WEAPONS:ROOMS;
+    const prefix = G.accusation||{};
+    pl.textContent = 'ACCUSATION';
+    fr.textContent = aType.toUpperCase();
+    let detail = '';
+    if(prefix.suspect!==undefined) detail += SUSPECTS[prefix.suspect].name;
+    if(prefix.weapon!==undefined) detail += ' + '+WEAPONS[prefix.weapon];
+    m.innerHTML = `
+      <div class="phase-banner">
+        <div class="phase-label" style="color:var(--warn)">Final Accusation — ${aType}</div>
+        ${detail?`<div class="phase-detail">${detail}</div>`:''}
+      </div>
+      <div class="screen" style="justify-content:flex-start;padding-top:4px">
+        <div class="sel-list">
+          ${items2.map((item,i) => {
+            const name = typeof item==='object'?item.name:item;
+            const dotColor = aType==='suspect'?`bg-${item.cls||''}`:'';
+            return `<div class="sel-item${i===G.focusIdx?' focused':''}" data-ai="${i}">
+              <span class="dot" style="background:${aType==='suspect'?'':aType==='weapon'?'var(--blue)':'var(--green)'}"></span>
+              <span class="label">${name}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="prompt"><span class="prompt-scroll">SCROLL</span> · <span class="prompt-ptt">PTT</span> confirm</div>
+      </div>`;
+    break;
+  }
+
+  case 'ACCUSE_RESULT': {
+    const a = G.accusation;
+    const correct = a.suspect===G.envelope.suspect && a.weapon===G.envelope.weapon && a.room===G.envelope.room;
+    if(correct) {
+      G.winner = G.turnIdx;
+      pl.textContent = 'SOLVED!';
+      m.innerHTML = `
+        <div class="screen">
+          <div class="result-icon">🏆</div>
+          <div class="result-title" style="color:var(--gold)">${curPlayer().character} wins!</div>
+          <div class="result-msg">
+            It was <strong>${SUSPECTS[G.envelope.suspect].name}</strong>
+            with the <strong>${WEAPONS[G.envelope.weapon]}</strong>
+            in the <strong>${ROOMS[G.envelope.room]}</strong>
+          </div>
+          <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> new game</div>
+        </div>`;
+      whisper(`${curPlayer().character} has solved the mystery! It was ${SUSPECTS[G.envelope.suspect].name}, with the ${WEAPONS[G.envelope.weapon]}, in the ${ROOMS[G.envelope.room]}!`);
+    } else {
+      curPlayer().alive = false;
+      const aliveCount = G.players.filter(p=>p.alive).length;
+      pl.textContent = 'WRONG!';
+      m.innerHTML = `
+        <div class="screen">
+          <div class="result-icon">💀</div>
+          <div class="result-title" style="color:var(--warn)">${curPlayer().character} is eliminated!</div>
+          <div class="result-msg">Wrong accusation. You remain to refute only.</div>
+          <div class="result-msg">${aliveCount} detective${aliveCount!==1?'s':''} remain</div>
+          <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> continue</div>
+        </div>`;
+      whisper(`Wrong! ${curPlayer().character} is eliminated from making accusations.`);
+      if(aliveCount <= 0) { G.phase = 'GAME_OVER'; render(); return; }
+    }
+    break;
+  }
+
+  case 'GAME_OVER':
+    pl.textContent = 'GAME OVER';
+    m.innerHTML = `
+      <div class="screen">
+        <div class="result-icon">🔍</div>
+        <div class="result-title" style="color:var(--warn)">Case goes cold!</div>
+        <div class="result-msg">
+          No one solved it. The answer was:<br>
+          <strong class="c-${SUSPECTS[G.envelope.suspect].cls}">${SUSPECTS[G.envelope.suspect].name}</strong>,
+          <strong style="color:var(--blue)">${WEAPONS[G.envelope.weapon]}</strong>,
+          <strong style="color:var(--green)">${ROOMS[G.envelope.room]}</strong>
+        </div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> new game</div>
+      </div>`;
+    whisper(`The case goes cold. It was ${SUSPECTS[G.envelope.suspect].name}, with the ${WEAPONS[G.envelope.weapon]}, in the ${ROOMS[G.envelope.room]}.`);
+    break;
+
+  case 'TURN_PASS': {
+    const nxt = curPlayer();
+    const cls3 = SUSPECTS.find(s=>s.name===nxt.character).cls;
+    pl.textContent = 'NEXT TURN';
+    m.innerHTML = `
+      <div class="privacy">
+        <div class="privacy-icon">👤</div>
+        <div class="privacy-name c-${cls3}">${nxt.character}</div>
+        <div class="privacy-msg">Pass R1 to this player</div>
+        <div class="prompt" style="margin-top:8px"><span class="prompt-ptt">PTT</span> start turn</div>
+      </div>`;
+    break;
+  }
+
+  } // switch
+}
+
+/* ══════════════════════════════════════
+   INPUT HANDLERS
+   ══════════════════════════════════════ */
+function clampFocus(max) { G.focusIdx = Math.max(0, Math.min(G.focusIdx, max-1)); }
+
+function handleScroll(dir) {
+  const d = dir === 'up' ? -1 : 1;
+  switch(G.phase) {
+    case 'PLAYER_COUNT': G.focusIdx += d; clampFocus(4); break;
+    case 'PLAYER_SETUP': {
+      const avail = SUSPECTS.filter(s => !G.players.some(p => p.character === s.name));
+      G.focusIdx += d; clampFocus(avail.length); break;
+    }
+    case 'TURN_START': G.menuIdx += d; G.menuIdx = Math.max(0,Math.min(G.menuIdx,3)); break;
+    case 'MOVE': G.focusIdx += d; clampFocus(9); break;
+    case 'SUGGEST_SUSPECT': G.focusIdx += d; clampFocus(6); break;
+    case 'SUGGEST_WEAPON': G.focusIdx += d; clampFocus(6); break;
+    case 'REFUTE_PICK': G.focusIdx += d; clampFocus(G._refuteData.cards.length); break;
+    case 'NOTEPAD': G.npFocusIdx += d;
+      const maxNp = G.npTab===0?6:G.npTab===1?6:9;
+      G.npFocusIdx = Math.max(0,Math.min(G.npFocusIdx,maxNp-1)); break;
+    case 'ACCUSE_SUSPECT': G.focusIdx += d; clampFocus(6); break;
+    case 'ACCUSE_WEAPON': G.focusIdx += d; clampFocus(6); break;
+    case 'ACCUSE_ROOM': G.focusIdx += d; clampFocus(9); break;
+  }
+  render();
+}
+
+function handleClick() {
+  switch(G.phase) {
+    case 'TITLE':
+      G.phase = 'PLAYER_COUNT'; G.focusIdx = 1; break;
+
+    case 'PLAYER_COUNT':
+      G.playerCount = [3,4,5,6][G.focusIdx];
+      G.phase = 'PLAYER_SETUP'; G.setupIdx = 0; G.focusIdx = 0; break;
+
+    case 'PLAYER_SETUP': {
+      const avail = SUSPECTS.filter(s => !G.players.some(p => p.character === s.name));
+      const chosen = avail[G.focusIdx];
+      G.players.push({ character: chosen.name, hand: [], notepad: {}, room: 0, alive: true });
+      G.setupIdx++;
+      if(G.setupIdx >= G.playerCount) {
+        dealCards();
+        G.setupIdx = 0; G.phase = 'DEAL_PASS';
+      } else {
+        G.focusIdx = 0;
+      }
+      break;
+    }
+
+    case 'DEAL_PASS':
+      G.phase = 'DEAL_REVEAL'; break;
+
+    case 'DEAL_REVEAL':
+      G.setupIdx++;
+      if(G.setupIdx >= G.playerCount) {
+        G.turnIdx = 0; G.menuIdx = 0; G.phase = 'TURN_PASS';
+      } else {
+        G.phase = 'DEAL_PASS';
+      }
+      break;
+
+    case 'TURN_PASS':
+      G.menuIdx = 0; G.phase = 'TURN_START'; break;
+
+    case 'TURN_START':
+      if(G.menuIdx === 0) { G.phase = 'MOVE'; G.focusIdx = curPlayer().room; }
+      else if(G.menuIdx === 1) {
+        G.suggestion = { suspect:0, weapon:0, room: curPlayer().room };
+        G.focusIdx = 0; G.phase = 'SUGGEST_SUSPECT';
+      }
+      else if(G.menuIdx === 2) { G.npTab = 0; G.npFocusIdx = 0; G.phase = 'NOTEPAD'; }
+      else if(G.menuIdx === 3) { G.accusation = {}; G.focusIdx = 0; G.phase = 'ACCUSE_SUSPECT'; }
+      break;
+
+    case 'MOVE': {
+      const roomIdx = ROOM_GRID.flat()[G.focusIdx];
+      const cp = curPlayer();
+      if(roomIdx === cp.room || ADJ[cp.room].includes(roomIdx)) {
+        cp.room = roomIdx;
+        G.menuIdx = 0; G.phase = 'TURN_START';
+      }
+      break;
+    }
+
+    case 'SUGGEST_SUSPECT':
+      G.suggestion.suspect = G.focusIdx;
+      G.focusIdx = 0; G.phase = 'SUGGEST_WEAPON'; break;
+
+    case 'SUGGEST_WEAPON':
+      G.suggestion.weapon = G.focusIdx;
+      G.phase = 'SUGGEST_ANNOUNCE'; break;
+
+    case 'SUGGEST_ANNOUNCE': {
+      const ref = findRefuter();
+      if(ref) {
+        G._refuteData = ref;
+        G.refuteIdx = ref.playerIdx;
+        G.focusIdx = 0;
+        G.phase = 'REFUTE_PASS';
+      } else {
+        G.phase = 'NO_REFUTE';
+      }
+      break;
+    }
+
+    case 'REFUTE_PASS':
+      G.phase = 'REFUTE_PICK'; G.focusIdx = 0; break;
+
+    case 'REFUTE_PICK': {
+      G.refuteCard = G._refuteData.cards[G.focusIdx];
+      G.phase = 'REFUTE_RETURN'; break;
+    }
+
+    case 'REFUTE_RETURN':
+      // Auto-update notepad
+      const rc = G.refuteCard;
+      const np = curPlayer().notepad;
+      if(rc.type==='suspect') np.suspects[rc.idx] = 'X';
+      if(rc.type==='weapon') np.weapons[rc.idx] = 'X';
+      if(rc.type==='room') np.rooms[rc.idx] = 'X';
+      G.phase = 'REFUTE_REVEAL'; break;
+
+    case 'REFUTE_REVEAL':
+    case 'NO_REFUTE':
+      nextTurn(); break;
+
+    case 'NOTEPAD': {
+      // Toggle mark on PTT
+      const cp2 = curPlayer();
+      const marks = G.npTab===0?cp2.notepad.suspects:G.npTab===1?cp2.notepad.weapons:cp2.notepad.rooms;
+      const cur = marks[G.npFocusIdx];
+      if(cur==='self') break; // can't change own cards
+      const cycle = {'?':'-','-':'X','X':'M','M':'?'};
+      marks[G.npFocusIdx] = cycle[cur] || '?';
+      break;
+    }
+
+    case 'ACCUSE_SUSPECT':
+      G.accusation.suspect = G.focusIdx;
+      G.focusIdx = 0; G.phase = 'ACCUSE_WEAPON'; break;
+
+    case 'ACCUSE_WEAPON':
+      G.accusation.weapon = G.focusIdx;
+      G.focusIdx = 0; G.phase = 'ACCUSE_ROOM'; break;
+
+    case 'ACCUSE_ROOM':
+      G.accusation.room = G.focusIdx;
+      G.phase = 'ACCUSE_RESULT'; break;
+
+    case 'ACCUSE_RESULT':
+      if(G.winner !== null) { newGame(); G.phase = 'TITLE'; }
+      else nextTurn();
+      break;
+
+    case 'GAME_OVER':
+      newGame(); G.phase = 'TITLE'; break;
+  }
+  render();
+}
+
+function handleLongPress() {
+  // Long press = go back / open notepad
+  if(G.phase === 'NOTEPAD') {
+    // Cycle notepad tab
+    G.npTab = (G.npTab + 1) % 3;
+    G.npFocusIdx = 0;
+  } else if(G.phase === 'TURN_START' || G.phase === 'MOVE' || G.phase === 'SUGGEST_SUSPECT' || G.phase === 'SUGGEST_WEAPON') {
+    // Open notepad from most phases
+    G._returnPhase = G.phase;
+    G.npTab = 0; G.npFocusIdx = 0;
+    G.phase = 'NOTEPAD';
+  } else if(G.phase === 'NOTEPAD' && G._returnPhase) {
+    G.phase = G._returnPhase;
+    G._returnPhase = null;
+  }
+  render();
+}
+
+function nextTurn() {
+  const n = G.playerCount;
+  let next = (G.turnIdx + 1) % n;
+  let safety = 0;
+  while(!G.players[next].alive && safety < n) { next = (next+1)%n; safety++; }
+  if(safety >= n) { G.phase = 'GAME_OVER'; return; }
+  G.turnIdx = next;
+  G.menuIdx = 0;
+  G.phase = 'TURN_PASS';
+}
+
+/* ── R1 Hardware Events ── */
+window.addEventListener('scrollUp', () => handleScroll('up'));
+window.addEventListener('scrollDown', () => handleScroll('down'));
+window.addEventListener('sideClick', () => handleClick());
+window.addEventListener('longPressStart', () => handleLongPress());
+
+/* ── Keyboard Fallbacks ── */
+document.addEventListener('keydown', e => {
+  if(e.key==='ArrowUp') { handleScroll('up'); e.preventDefault(); }
+  else if(e.key==='ArrowDown') { handleScroll('down'); e.preventDefault(); }
+  else if(e.key==='Enter'||e.key===' ') { handleClick(); e.preventDefault(); }
+  else if(e.key==='Escape'||e.key==='Backspace') { handleLongPress(); e.preventDefault(); }
+  else if(e.key==='ArrowLeft'&&G.phase==='NOTEPAD') { G.npTab=(G.npTab-1+3)%3; G.npFocusIdx=0; render(); }
+  else if(e.key==='ArrowRight'&&G.phase==='NOTEPAD') { G.npTab=(G.npTab+1)%3; G.npFocusIdx=0; render(); }
+});
+
+/* ── Whisper Toggle ── */
+el('whisperToggle').addEventListener('click', () => {
+  G.whisperOn = !G.whisperOn;
+  el('whisperToggle').classList.toggle('active', G.whisperOn);
+});
+el('whisperToggle').classList.add('active');
+
+/* ── Init ── */
+render();
+</script>
+</body>
+</html>
